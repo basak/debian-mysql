@@ -30,6 +30,9 @@ TMP := $(CURDIR)/debian/tmp/
 USE_ASSEMBLER:=--enable-assembler
 NUMJOBS=$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 
+ifeq (,$(NUMJOBS))
+	NUMJOBS=1
+endif
 
 export MYSQL_BUILD_CC=$(DEB_HOST_GNU_TYPE)-gcc
 export MYSQL_BUILD_CXX=$(DEB_HOST_GNU_TYPE)-g++
@@ -101,13 +104,13 @@ build-stamp:
 	[ -f $(EXPORTED_SOURCE_TARBALL) ] || tar -zcf $(EXPORTED_SOURCE_TARBALL) \
 	--exclude=debian . \
 	--transform="s,^\./,mysql-5.6/,"
-	cd $(builddir) && $(MAKE)
+	cd $(builddir) && $(MAKE) -j $(NUMJOBS)
 	touch $@
 
 build-pic-stamp:
 	@echo "RULES.$@"
-	cd $(builddir) && $(MAKE) -C scripts
-	cd $(builddir) && $(MAKE) -C libmysqld
+	cd $(builddir) && $(MAKE) -C scripts -j $(NUMJOBS)
+	cd $(builddir) && $(MAKE) -C libmysqld -j $(NUMJOBS)
 	touch $@
 
 override_dh_auto_test:
