@@ -11,8 +11,6 @@ include /usr/share/dpkg/buildflags.mk
 ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 ARCH_OS := $(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 BUILDDIR := builddir
-BUILDDIR_PIC := builddir-pic
-builddir = $(if $(findstring -pic,$@),$(BUILDDIR_PIC),$(BUILDDIR))
 DEBVERSION := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }' | sed 's/^.*-//' )
 DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 DEB_BUILD_GNU_SYSTEM ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_SYSTEM)
@@ -56,30 +54,26 @@ override_dh_auto_clean:
 	dh_testdir 
 	dh_testroot
 	[ ! -d mysql-test/var ] || rm -rf mysql-test/var
-	rm -rf $(BUILDDIR) $(BUILDDIR_PIC) .pc
+	rm -rf $(BUILDDIR) .pc
 	debconf-updatepo
 	rm -f $(EXPORTED_SOURCE_TARBALL)
 	rm -f cmake/os/GNU.cmake
 
 override_dh_prep: 
 
-override_dh_auto_configure: configure-stamp configure-pic-stamp
+override_dh_auto_configure: configure-stamp
 
-configure-pic-stamp: FORCE_FPIC_CFLAGS=-fPIC
-configure-pic-stamp: FORCE_FPIC=-DWITH_PIC=On
-
-configure-stamp configure-pic-stamp:
+configure-stamp:
 	@echo "RULES.$@"
 	dh_testdir
-	( test -d $(builddir) || mkdir $(builddir) ) && cd $(builddir) && \
+	( test -d $(BUILDDIR) || mkdir $(BUILDDIR) ) && cd $(BUILDDIR) && \
 	sh -c  'PATH=$${MYSQL_BUILD_PATH:-"/bin:/usr/bin"} \
 		CC=$${MYSQL_BUILD_CC:-gcc} \
-		CFLAGS=$${MYSQL_BUILD_CFLAGS:-"-O2 -DBIG_JOINS=1 ${FORCE_FPIC_CFLAGS} -fno-strict-aliasing ${TAOCRYPT_OPT}"} \
+		CFLAGS=$${MYSQL_BUILD_CFLAGS:-"-O2 -DBIG_JOINS=1 -fno-strict-aliasing ${TAOCRYPT_OPT}"} \
 		CXX=$${MYSQL_BUILD_CXX:-g++} \
-		CXXFLAGS=$${MYSQL_BUILD_CXXFLAGS:-"-O3 -DBIG_JOINS=1 -felide-constructors -fno-exceptions -fpermissive -fno-rtti ${FORCE_FPIC_CFLAGS} -fno-strict-aliasing ${TAOCRYPT_OPT}"} \
+		CXXFLAGS=$${MYSQL_BUILD_CXXFLAGS:-"-O3 -DBIG_JOINS=1 -felide-constructors -fno-exceptions -fpermissive -fno-rtti -fno-strict-aliasing ${TAOCRYPT_OPT}"} \
 		cmake -DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_VERBOSE_MAKEFILE=ON \
-		$(FORCE_FPIC) \
 		-DMYSQL_UNIX_ADDR=/var/run/mysqld/mysqld.sock \
 		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 		-DWITH_LIBWRAP=ON \
@@ -99,37 +93,31 @@ configure-stamp configure-pic-stamp:
 		-DWITH_EXTRA_CHARSETS=all ..'
 	touch $@
 
-override_dh_auto_build: build-stamp build-pic-stamp
+override_dh_auto_build: build-stamp
 
 build-stamp:
 	@echo "RULES.$@"
 	[ -f $(EXPORTED_SOURCE_TARBALL) ] || tar -zcf $(EXPORTED_SOURCE_TARBALL) \
 	--exclude=debian . \
 	--transform="s,^\./,mysql-5.6/,"
-	cd $(builddir) && $(MAKE)
-	touch $@
-
-build-pic-stamp:
-	@echo "RULES.$@"
-	cd $(builddir) && $(MAKE) -C scripts
-	cd $(builddir) && $(MAKE) -C libmysqld
+	cd $(BUILDDIR) && $(MAKE)
 	touch $@
 
 override_dh_auto_test:
 	@echo "RULES.$@"
 ifeq ($(findstring nocheck,$(DEB_BUILD_OPTIONS)),)
-	cp unittest/unit.pl $(builddir)/unittest/
-	cp -r mysql-test/* $(builddir)/mysql-test/
-	cp -r sql/share/* $(builddir)/sql/share/
-	cp -r scripts/*sql $(builddir)/scripts/
+	cp unittest/unit.pl $(BUILDDIR)/unittest/
+	cp -r mysql-test/* $(BUILDDIR)/mysql-test/
+	cp -r sql/share/* $(BUILDDIR)/sql/share/
+	cp -r scripts/*sql $(BUILDDIR)/scripts/
 ifeq ($(ARCH_OS),hurd)
 	# Tests not fully working under Hurd, see
 	# http://bugs.mysql.com/bug.php?id=64685. Run unit tests only.
-	cd $(builddir) && $(MAKE) test || $(TESTSUITE_FAIL_CMD) ;
+	cd $(BUILDDIR) && $(MAKE) test || $(TESTSUITE_FAIL_CMD) ;
 else
 	# Skip replication tests since they are timing sensitive and may
 	# result in false positives.
-	cd $(builddir)/mysql-test && ./mtr --parallel=$(NUMJOBS) --skip-rpl $(MTR_SUITE) || $(TESTSUITE_FAIL_CMD) ;
+	cd $(BUILDDIR)/mysql-test && ./mtr --parallel=$(NUMJOBS) --skip-rpl $(MTR_SUITE) || $(TESTSUITE_FAIL_CMD) ;
 endif
 endif
 
@@ -140,7 +128,7 @@ auto_install-stamp:
 	dh_testdir
 	dh_testroot
 	# make install (trailing slash needed for innobase)
-	cd $(builddir) && $(MAKE) install DESTDIR=$(TMP)/
+	cd $(BUILDDIR) && $(MAKE) install DESTDIR=$(TMP)/
 	# After installing, remove rpath to make lintian happy.
 	set +e; \
 	find ./debian/tmp/ -type f -print0 \
@@ -149,11 +137,7 @@ auto_install-stamp:
 		| cut -d: -f 1 \
 		| xargs --no-run-if-empty chrpath -d; \
 	set -e
-	# install libmysqld built with -FPIC
 	install -d -m 0755 -o root -g root $(TMP)/usr/lib/mysql
-	install -m 0644 -o root -g root $(BUILDDIR_PIC)/libmysqld/libmysqld.a $(TMP)/usr/lib/mysql/libmysqld_pic.a
-	# mysql_config won't report the -fPIC, so give libmysqld-pic users a way to get their flags
-	install -m 0755 -o root -g root $(BUILDDIR_PIC)/scripts/mysql_config $(TMP)/usr/bin/mysql_config_pic
 	mkdir -p $(TMP)/usr/share/doc/mysql-server-5.6
 	nm -n $(BUILDDIR)/sql/mysqld |gzip -9 > $(TMP)/usr/share/doc/mysql-server-5.6/mysqld.sym.gz
 	# This seems to be the only safe place to fix permissions issues
@@ -163,7 +147,6 @@ auto_install-stamp:
 	install -m 0755 debian/additions/echo_stderr $(TMP)/usr/share/mysql/
 	install -m 0755 debian/additions/debian-start $(TMP)/etc/mysql/
 	install -m 0755 debian/additions/debian-start.inc.sh $(TMP)/usr/share/mysql/
-	install -m 0644 debian/additions/mysql_config_pic.1 $(TMP)/usr/share/man/man1
 	install -m 0644 debian/additions/mysql_embedded.1 $(TMP)/usr/share/man/man1
 	install -m 0644 debian/additions/debian_create_root_user.sql $(TMP)/usr/share/mysql/
 	install -m 0755 debian/additions/mysql-systemd-start $(TMP)/usr/share/mysql/
