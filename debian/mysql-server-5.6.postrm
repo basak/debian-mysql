@@ -45,6 +45,14 @@ case "$1" in
   ;;
 esac
 
+# New packaging paradigm for my.cnf as of Dec-2014 for sharing mysql
+# variants in Ubuntu.
+case "$1" in
+  remove|disappear)
+    /usr/share/mysql-comon/configure-symlinks remove mysql "$mysql_cfgdir/mysql.cnf"
+  ;;
+esac
+
 #
 # - Do NOT purge logs or data if another mysql-sever* package is installed (#307473)
 # - Remove the mysql user only after all his owned files are purged.
