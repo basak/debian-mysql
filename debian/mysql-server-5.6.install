@@ -2,8 +2,8 @@
 #usr/share/mysql/config.medium.ini
 #usr/share/mysql/config.small.ini
 #usr/share/mysql/ndb-config-2-node.ini
-debian/additions/mysql.conf.d/mysqld_safe_syslog.cnf etc/mysql/mysql.conf.d/
 debian/additions/mysql.conf.d/mysqld.cnf etc/mysql/mysql.conf.d/
+debian/additions/mysql.conf.d/mysqld_safe_syslog.cnf etc/mysql/mysql.conf.d/
 etc/apparmor.d/usr.sbin.mysqld
 etc/mysql/debian-start
 etc/mysql/mysql.cnf
@@ -33,6 +33,6 @@ usr/share/mysql/debian-start.inc.sh
 usr/share/mysql/debian_create_root_user.sql
 usr/share/mysql/echo_stderr
 usr/share/mysql/errmsg-utf8.txt
+usr/share/mysql/mysql-systemd-start
 usr/share/mysql/mysql_test_data_timezone.sql
 usr/share/mysql/mysqld_multi.server
-usr/share/mysql/mysql-systemd-start
