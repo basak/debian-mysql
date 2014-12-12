@@ -153,6 +153,7 @@ auto_install-stamp:
 	# This seems to be the only safe place to fix permissions issues
         # not handled by dh_fixperms.
 	install -m 0755 debian/additions/echo_stderr $(TMP)/usr/share/mysql/
+	mkdir -p $(TMP)/etc/mysql
 	install -m 0755 debian/additions/debian-start $(TMP)/etc/mysql/
 	install -m 0755 debian/additions/debian-start.inc.sh $(TMP)/usr/share/mysql/
 	install -m 0644 debian/additions/mysql_config_pic.1 $(TMP)/usr/share/man/man1
